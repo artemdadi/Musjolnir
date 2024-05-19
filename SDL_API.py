@@ -3,6 +3,7 @@ from math import *
 from time import *
 from ctypes import *
 import os
+import sys
 
 #SDL
 from sdl2 import *
@@ -33,12 +34,11 @@ class SDL_app:
         
     #DEBUG SYSTEM--------------------
     
-    def function_time(self, func, *args, **kwargs):
+    def function_time(self, func, name, *args, **kwargs):
     	start = time()
     	result = func(*args, **kwargs)
-    	widget_name = args[0].__class__
     	end = time()
-    	self.func_times[widget_name] = end - start
+    	self.func_times[name] = end - start
     	return result
     
     #AUDIO SYSTEM---------------------------------------------------------------------------------
@@ -121,7 +121,7 @@ class SDL_app:
     def draw_widget(self, widget):
         if widget.is_complex():
             for cwidget in widget.widgets:
-                self.function_time(self.draw_widget, cwidget)
+                self.function_time(self.draw_widget, cwidget.__class__, cwidget)
         else:
             x, y = self.norm_to_pixels(widget.x, widget.y)
             w, h = self.norm_to_pixels(widget.w, widget.h)
@@ -173,9 +173,9 @@ class SDL_app:
     #DRAWING FUNCS FOR DIFFERENT WIDGETS------------------------------------------------------------------
             
     def fill_rect(self, x, y, w, h, color):
-        r,g,b,a = color.unwrap()
-        SDL_SetRenderDrawColor(self.renderer, r,g,b,255)
-        rect = SDL_Rect(x,y,w,h)
+        r, g, b, a = color.unwrap()
+        SDL_SetRenderDrawColor(self.renderer, r, g, b, 255)
+        rect = SDL_Rect(x, y, w, h)
         SDL_RenderFillRect(self.renderer, byref(rect))
         
     def draw_rect(self, x, y, w, h, line_width, color):
@@ -239,19 +239,28 @@ class SDL_app:
         return [[surf, x, y, None]]
 
     def test_draw(self):
-        scale = 100
-        vertex_1 = SDL_Vertex(SDL_FPoint(0, 0), (255,0,0,255), SDL_FPoint(0, 0))
-        vertex_2 = SDL_Vertex(SDL_FPoint(1 * scale, 0), (255,0,0,255), SDL_FPoint(0, 0))
-        vertex_3 = SDL_Vertex(SDL_FPoint(0, 1 * scale), (255,0,0,255), SDL_FPoint(0, 0))
-        vertex_4 = SDL_Vertex(SDL_FPoint(1 * scale, 1 * scale), (255,0,0,255), SDL_FPoint(0, 0))
-        vertex_5 = SDL_Vertex(SDL_FPoint(1 * scale, 0), (255,0,0,255), SDL_FPoint(0, 0))
-        vertex_6 = SDL_Vertex(SDL_FPoint(0, 1 * scale), (255,0,0,255), SDL_FPoint(0, 0))
-        py_values = [vertex_1, vertex_2, vertex_3, vertex_4, vertex_5, vertex_6]
-        vertices = (SDL_Vertex * len(py_values))(*py_values)
+        x_0 = 200
+        y_0 = 200
+        r = 300
+        py_vertices = []
+        vert_count = 50
+        step = 1/vert_count
+        for i in range(vert_count):
+            x = x_0 + sin(2 * pi * i * step) * r
+            y = y_0 + cos(2 * pi * i * step) * r
+            
+            x_next = x_0 + sin(2 * pi * (i+1) * step) * r
+            y_next = y_0 + cos(2 * pi * (i+1) * step) * r
+                
+            
+            py_vertices.append(SDL_Vertex(SDL_FPoint(x_0, y_0), (255,0,0,255), SDL_FPoint(0, 0)))
+            py_vertices.append(SDL_Vertex(SDL_FPoint(x, y), (255,0,0,255), SDL_FPoint(0, 0)))
+            py_vertices.append(SDL_Vertex(SDL_FPoint(x_next, y_next), (255,0,0,255), SDL_FPoint(0, 0)))
+        vertices = (SDL_Vertex * len(py_vertices))(*py_vertices)
 
-        SDL_SetRenderDrawColor(self.renderer, 255, 255, 255, 255);
+        SDL_SetRenderDrawColor(self.renderer, 255, 0, 0, 255)
 
-        SDL_RenderGeometry(self.renderer, None, vertices, len(py_values), None, 0);
+        SDL_RenderGeometry(self.renderer, None, vertices, len(py_vertices), None, 0)
         
     @cached_surf
     def render_diagram(self, x, y, w, h, points, color, widget):
@@ -443,12 +452,16 @@ class SDL_app:
         print("SDL init error: {}".format(SDL_GetError()))
         #additional vars
         self.frame_time = 1
-        self.my_widgets = [Text(self.app, None, 0.05, 0.05, 0.3, 0.3, "111222333444555666777888999", Color("red"))]
+        self.my_widgets = [Text(self.app, None, 0.1, 0.1, 0.9, 0.9, "111222333444555666777888999", Color("red"))]
         self.debug_info = ""
         #app main loop
         SDL_PauseAudio(0)
         run = True
-        frame = 1
+        self.frame = 1
+        self.tick_time = 0
+        self.tick_per_second = 5
+        self.second_per_tick = 1/self.tick_per_second
+        self.tick = 0
         while run:
             #begin time
             begin_time = time()
@@ -459,11 +472,13 @@ class SDL_app:
             #video
             SDL_RenderClear(self.renderer)
             self.draw_widget(main_widget)
-            if frame == 1:
+            self.function_time(self.test_draw, "vert")
+            self.function_time(self.draw_circle, "surf", 400, 400, 300, Color("blue"))
+            if self.frame == 1:
             	self.my_widgets[0].change_text(str(self.func_times))#str(fps))
             for i in self.my_widgets:
                 self.draw_widget(i)
-##            self.test_draw()
+            
             SDL_RenderPresent(self.renderer)
             #audio
             
@@ -471,11 +486,22 @@ class SDL_app:
             self.frame_time = time() - begin_time
             self.last_time = time()
             if self.frame_time == 0:
-                self.frame_time = 1
-            frame+=1
+                self.frame_time = sys.float_info.min
+            self.frame+=1
+            self.tick_time += self.frame_time
+            if self.tick_time > self.second_per_tick:
+                self.tick_time = 0
+                self.tick+=1
         self.close()
         
     def close(self):
+        for i in range(SDL_GetNumRenderDrivers()):
+            info = SDL_RendererInfo()
+            SDL_GetRenderDriverInfo(i, info)
+            print(info.name)
+        info = SDL_RendererInfo()
+        SDL_GetRendererInfo(self.renderer, info)
+        print(info.name)
         SDL_PauseAudio(1)
         self.app.destroy()
         self.sounds = 0
