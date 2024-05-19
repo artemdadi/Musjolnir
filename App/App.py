@@ -16,11 +16,11 @@ class App:
 
     def __init__(self, api):
         self.api = api
+        self.color_theme = "default"
         self.scene_type = "Menu"
         self.last_scene_type = self.scene_type
-        self.scene = Scenes[self.scene_type](self)
         self.game_type = self.game_types[1]
-        self.color_theme = "default"
+        self.scene = Scenes[self.scene_type](self)
 
     def handle_events(self, events):
         run = True

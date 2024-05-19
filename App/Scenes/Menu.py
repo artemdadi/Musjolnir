@@ -18,7 +18,7 @@ class Menu(Scene):
         b_names = ["Новая игра", "Клавиши", "Настройки", "Выход"]
         button_count = len(b_names)
         unclick_funcs = [b_change_scene_cb for i in range(len(scenes))] + [b_exit_cb]
-        colors = [Color(BUTTON_COLOR) for i in range(button_count)]
-        self.widgets.append(Button_grid(app, self, 0.1, 0.1, 0.8, 0.8, 0, 0.05,
-                               1, button_count, b_names, colors,
-                               unclick_funcs, values = scenes + [None]))
+        scenes+= [None]
+        self.widgets.append(Button_grid(app, self, 0.1, 0.1, 0.8, 0.8, 0, 0.05, 1,
+                                        button_count, b_names, unclick_funcs = unclick_funcs,
+                                        values = scenes, rad = 20))

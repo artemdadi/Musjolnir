@@ -12,7 +12,7 @@ class Widget:
         self.h = h
         self.y = y
         self.w = w
-        self.color = color if color != None else Color(type(self).__name__, theme = app.theme)
+        self.color = color #if color != None else Color(type(self).__name__, theme = app.color_theme)
         self.widgets = []
         self.is_interactive = is_interactive
 
@@ -80,12 +80,13 @@ class Widget:
 
 class Fill_Rect(Widget):
     
-    def __init__(self, app, parrent, x, y, w, h, color = None):
+    def __init__(self, app, parrent, x, y, w, h, color, r = None):
         Widget.__init__(self, app, parrent, x, y, w, h, color)
+        self.r = r
         
 class Draw_Rect(Widget):
     
-    def __init__(self, app, parrent, x, y, w, h, border, color = None):
+    def __init__(self, app, parrent, x, y, w, h, border, color):
         Widget.__init__(self, app, parrent, x, y, w, h, color)
         self.border = border
                 
@@ -115,8 +116,7 @@ class Diagram(Widget):
 class Scene(Widget):
     
     def __init__(self, app, color = None, widgets = None):
-        if color == None:
-            color = Color(BACKGROUND_COLOR)
+        color = color if color != None else Color("Scene_bg", theme = app.color_theme)
         Widget.__init__(self, app, None, 0, 0, 1, 1)
         self.widgets = [Fill_Rect(app, self, 0, 0, 1, 1, color)]
 
@@ -140,12 +140,16 @@ class Label(Widget):
 
 class Button(Widget):
     
-    def __init__(self, app, parrent, x, y, w, h, color, text, text_dir = None, border = None, click_border = 0.01, click_func = None, unclick_func = None):
+    def __init__(self, app, parrent, x, y, w, h, text, color = None, text_dir = None, border = None,
+                 click_border = 0.01, click_func = None, unclick_func = None, r = None):
+        
         Widget.__init__(self, app, parrent, x, y, w, h, color, is_interactive = True)
+        color = color if color != None else Color("Button_bg", theme = app.color_theme)
         self.click_border = click_border
         self.click_func = click_func
         self.unclick_func = unclick_func
-        self.widgets = [Fill_Rect(app, self, x, y, w, h, color), Text(app, self, x, y, w, h, text, Color("black"), text_dir)]
+        self.widgets = [Fill_Rect(app, self, x, y, w, h, color, r),
+                        Text(app, self, x, y, w, h, text, Color("black"), text_dir)]
         if border != None:
             self.widgets.append(Draw_Rect(app, self, x, y, w, h, border, Color("black")))
 
@@ -164,7 +168,7 @@ class Button(Widget):
         self.widgets.append(Draw_Rect(self.app, self, self.x, self.y, self.w, self.h, self.click_border, self.bg_color()))
         self.bg_color(self.widgets[0].color.add_k(-30))
         self.widgets[1].add_border(-self.click_border, -self.click_border)
-        self.widgets[1].color = self.color.invert()
+        self.widgets[1].color = self.widgets[1].color.invert()
         
     def disactivate(self, run_func = True):
         self.widgets[1].add_border(self.click_border, self.click_border)
@@ -176,14 +180,13 @@ class Button(Widget):
 
 class Button_grid(Widget):
     
-    def __init__(self, app, parrent, x, y, w, h, padding_w, padding_h, columns, raws, names, colors, unclick_funcs = None, click_funcs = None, values = None):
+    def __init__(self, app, parrent, x, y, w, h, padding_w, padding_h, columns, raws, names,
+                 colors = None, unclick_funcs = None, click_funcs = None, values = None, rad = None):
         Widget.__init__(self, app, parrent, x, y, w, h)
-        if click_funcs == None:
-            click_funcs = [None for i in range(len(names))]
-        if unclick_funcs == None:
-            unclick_funcs = [None for i in range(len(names))]
-        if values == None:
-            values = [None for i in range(len(names))]
+        if click_funcs   == None: click_funcs = [None for i in range(len(names))]
+        if unclick_funcs == None: unclick_funcs = [None for i in range(len(names))]
+        if values        == None: values = [None for i in range(len(names))]
+        if colors        == None: colors = [None for i in range(len(names))]
         b_w = (w - padding_w * (columns - 1))/columns
         b_h = (h - padding_h * (raws - 1))/raws
         ind = 0
@@ -191,9 +194,10 @@ class Button_grid(Widget):
             for c in range(columns):
                 self.widgets.append(Button(self.app, self,
                                            x + c*(b_w + padding_w), y + r*(b_h + padding_h),
-                                           b_w, b_h, colors[ind], names[ind],
+                                           b_w, b_h, names[ind], colors[ind],
                                            click_func=click_funcs[ind],
-                                           unclick_func=unclick_funcs[ind]))
+                                           unclick_func=unclick_funcs[ind],
+                                           r = rad))
                 self.widgets[-1].value = values[ind]
                 ind += 1
         
@@ -235,17 +239,19 @@ class Choose_menu(Widget):
         Widget.__init__(self, app, parrent, x, y, w, h, color)
         self.var_name = var_name
         self.values = values
-        self.widgets = [Button(app, self, x, y, w, h, color, getattr(self.app, var_name), unclick_func=self.show_options)]
+        self.init_h = self.h
+        self.widgets = [Button(app, self, x, y, w, h, getattr(self.app, var_name), color = color, unclick_func=self.show_options)]
 
     def show_options(self, button):
         def b_change_var(b):
-            main_widget = b.parrent
+            main_widget = b.parrent.parrent
             setattr(b.app, main_widget.var_name, b.value)
-            for i in range(len(main_widget.values)):
-                self.pop_last_widget()
             main_widget.w = b.w
-            main_widget.widgets.append(Button(b.app, main_widget, main_widget.x, main_widget.y, b.w, b.h, b.color, getattr(b.app, main_widget.var_name), unclick_func=main_widget.show_options))
+            main_widget.pop_last_widget()
+            main_widget.widgets.append(Button(b.app, main_widget, main_widget.x, main_widget.y, b.w, main_widget.init_h, getattr(b.app, main_widget.var_name), unclick_func=main_widget.show_options))
+
         self.pop_last_widget()
         unclick_funcs = [b_change_var for i in range(len(self.values))]
         self.h = 0.1 * len(self.values)
-        self.make_buttons_grid(self.x, self.y, 0.8, self.h, 1, len(self.values), self.values, unclick_funcs, values = self.values)
+        self.widgets.append(Button_grid(self.app, self, self.x, self.y, 0.8, self.h, 0.05, 0.05, 1, len(self.values), self.values, colors = None, unclick_funcs = unclick_funcs, values = self.values))
+                            

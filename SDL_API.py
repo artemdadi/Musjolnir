@@ -116,7 +116,10 @@ class SDL_app:
             w, h = self.norm_to_pixels(widget.w, widget.h)
             color = widget.color
             if isinstance(widget, Fill_Rect):
-                self.fill_rect(x, y, w, h, color)
+                if widget.r == None:
+                    self.fill_rect(x, y, w, h, color)
+                else:
+                    self.fill_rounded_rect(x, y, w, h, widget.r, color, widget)
             elif isinstance(widget, Draw_Rect):
                 border = self.norm_to_min_length_pixels(widget.border)
                 self.draw_rect(x, y, w, h, border, color)
@@ -175,6 +178,54 @@ class SDL_app:
         SDL_RenderFillRect(self.renderer, byref(rect))
         rect = SDL_Rect(x, y+h-line_width, w, line_width)
         SDL_RenderFillRect(self.renderer, byref(rect))
+
+    @cached_surf   
+    def fill_rounded_rect(self, x, y, w, h, r, color, widget):
+        surf = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_Pixel_Types["SDL_PF_argb8888"])
+        bg_color = Color("invis").as_uint32()
+        draw_color = color.as_uint32()
+        SDL_LockSurface(surf)
+        p = cast(surf.contents.pixels, POINTER(Uint32))
+        for surf_x in range(w):
+            for surf_y in range(h):
+                i = surf_y * w + surf_x
+                dist1 = sqrt((r - surf_x)*(r - surf_x) + (r - surf_y)*(r - surf_y))
+                cond1 = (dist1 > r) and (surf_x < r) and (surf_y < r)
+                dist2 = sqrt((w - r - surf_x)*(w - r - surf_x) + (r - surf_y)*(r - surf_y))
+                cond2 = (dist2 > r) and (surf_x > (w - r)) and (surf_y < r)
+                dist3 = sqrt((r - surf_x)*(r - surf_x) + (h - r - surf_y)*(h - r - surf_y))
+                cond3 = (dist3 > r) and (surf_x < r) and (surf_y > (h - r))
+                dist4 = sqrt((w - r - surf_x)*(w - r - surf_x) + (h - r - surf_y)*(h - r - surf_y))
+                cond4 = (dist4 > r) and (surf_x > (w - r)) and (surf_y > (h - r))
+                if cond1 or cond2 or cond3 or cond4:
+                    p[i] = bg_color
+                else:
+                    p[i] = draw_color
+        SDL_UnlockSurface(surf)
+        self.render_surface(surf, x - r, y - r)
+        return [[surf, x, y, None]]
+                          
+
+    @cached_surf   
+    def draw_circle(self, x, y, r, color):
+        w = r * 2
+        h = r * 2
+        surf = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_Pixel_Types["SDL_PF_argb8888"])
+        bg_color = Color("invis").as_uint32()
+        draw_color = color.as_uint32()
+        SDL_LockSurface(surf)
+        p = cast(surf.contents.pixels, POINTER(Uint32))
+        for surf_x in range(w):
+            for surf_y in range(h):
+                i = surf_y * w + surf_x
+                dist = sqrt((r - surf_x)*(r - surf_x) + (r - surf_y)*(r - surf_y))
+                if dist < r:
+                    p[i] = draw_color
+                else:
+                    p[i] = bg_color
+        SDL_UnlockSurface(surf)
+        self.render_surface(surf, x - r, y - r)
+        return [[surf, x, y, None]]
 
     def test_draw(self):
         scale = 100
@@ -359,8 +410,8 @@ class SDL_app:
         TTF_Init()
         self.big_font = TTF_OpenFont(b'Fonts/font.ttf', 40)
         self.small_font = TTF_OpenFont(b'Fonts/font.ttf', 20)
-        c_name = c_char_p(self.name)
         #window
+        c_name = c_char_p(self.name)
         self.window = SDL_CreateWindow(c_name, 30, 30, 800, 500, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE)
         w = c_int()
         h = c_int()

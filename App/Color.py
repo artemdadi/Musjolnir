@@ -15,8 +15,8 @@ def fill_colors_palette(palette_p, colors):
 
 COLOR_THEMES = {
 "default": {
-    "Background" : "#16171b",
-    "Button" : "#01b075"
+    "Scene_bg" : "#16171b",
+    "Button_bg" : "#01b075"
     }
 }
 
