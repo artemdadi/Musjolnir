@@ -25,11 +25,22 @@ class SDL_app:
         self.app = App(self)
         self.timers = []
         self.last_sound_id = 0
+        self.func_times = {}
         
     def load_image(self, file_name):
         io = SDL_RWFromFile(file_name, "rb")
         SDL_RWclose(io)
         
+    #DEBUG SYSTEM--------------------
+    
+    def function_time(self, func, *args, **kwargs):
+    	start = time()
+    	result = func(*args, **kwargs)
+    	widget_name = args[0].__class__
+    	end = time()
+    	self.func_times[widget_name] = end - start
+    	return result
+    
     #AUDIO SYSTEM---------------------------------------------------------------------------------
     
     def init_playing_sounds_buf(self, max_sounds):
@@ -110,7 +121,7 @@ class SDL_app:
     def draw_widget(self, widget):
         if widget.is_complex():
             for cwidget in widget.widgets:
-                self.draw_widget(cwidget)
+                self.function_time(self.draw_widget, cwidget)
         else:
             x, y = self.norm_to_pixels(widget.x, widget.y)
             w, h = self.norm_to_pixels(widget.w, widget.h)
@@ -437,6 +448,7 @@ class SDL_app:
         #app main loop
         SDL_PauseAudio(0)
         run = True
+        frame = 1
         while run:
             #begin time
             begin_time = time()
@@ -447,9 +459,10 @@ class SDL_app:
             #video
             SDL_RenderClear(self.renderer)
             self.draw_widget(main_widget)
-##            self.my_widgets[0].change_text(self.app.game_type)#str(fps))
-##            for i in self.my_widgets:
-##                self.draw_widget(i)
+            if frame == 1:
+            	self.my_widgets[0].change_text(str(self.func_times))#str(fps))
+            for i in self.my_widgets:
+                self.draw_widget(i)
 ##            self.test_draw()
             SDL_RenderPresent(self.renderer)
             #audio
@@ -459,6 +472,7 @@ class SDL_app:
             self.last_time = time()
             if self.frame_time == 0:
                 self.frame_time = 1
+            frame+=1
         self.close()
         
     def close(self):

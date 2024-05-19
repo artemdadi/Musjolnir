@@ -134,7 +134,7 @@ class Sound:
         self.spec = SDL_AudioSpec(0,0,0,0)
         size = c_size_t()
         temp_buf = pointer(Uint8())
-        SDL_LoadWAV(file_name, byref(self.spec), byref(temp_buf), cast(byref(size), POINTER(c_ulong)))
+        SDL_LoadWAV(file_name, byref(self.spec), byref(temp_buf), cast(byref(size), POINTER(c_uint)))
         void_p = SDL_malloc(size)
         SDL_memcpy(void_p, temp_buf, size)
         SDL_FreeWAV(temp_buf)
