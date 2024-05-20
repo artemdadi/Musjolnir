@@ -27,6 +27,7 @@ class SDL_app:
         self.timers = []
         self.last_sound_id = 0
         self.func_times = {}
+        self.vert_count = 100
         
     def load_image(self, file_name):
         io = SDL_RWFromFile(file_name, "rb")
@@ -130,7 +131,7 @@ class SDL_app:
                 if widget.r == None:
                     self.fill_rect(x, y, w, h, color)
                 else:
-                    self.fill_rounded_rect(x, y, w, h, widget.r, color, widget)
+                    self.fill_rounded_rect(x, y, w, h, widget.r, color)
             elif isinstance(widget, Draw_Rect):
                 border = self.norm_to_min_length_pixels(widget.border)
                 self.draw_rect(x, y, w, h, border, color)
@@ -174,92 +175,66 @@ class SDL_app:
             
     def fill_rect(self, x, y, w, h, color):
         r, g, b, a = color.unwrap()
-        SDL_SetRenderDrawColor(self.renderer, r, g, b, 255)
-        rect = SDL_Rect(x, y, w, h)
-        SDL_RenderFillRect(self.renderer, byref(rect))
+        SDL_SetRenderDrawColor(self.renderer, r, g, b, a)
+        SDL_RenderFillRect(self.renderer, byref(SDL_Rect(x, y, w, h)))
         
     def draw_rect(self, x, y, w, h, line_width, color):
         r, g, b, a = color.unwrap()
-        SDL_SetRenderDrawColor(self.renderer, r,g,b,255)
-        rect = SDL_Rect(x, y, w, line_width)
-        SDL_RenderFillRect(self.renderer, byref(rect))
-        rect = SDL_Rect(x, y, line_width, h)
-        SDL_RenderFillRect(self.renderer, byref(rect))
-        rect = SDL_Rect(x+w-line_width, y, line_width, h)
-        SDL_RenderFillRect(self.renderer, byref(rect))
-        rect = SDL_Rect(x, y+h-line_width, w, line_width)
-        SDL_RenderFillRect(self.renderer, byref(rect))
+        py_rects = [
+            SDL_Rect(x, y, w, line_width),
+            SDL_Rect(x, y, line_width, h),
+            SDL_Rect(x+w-line_width, y, line_width, h),
+            SDL_Rect(x, y+h-line_width, w, line_width)
+            ]
+        rects = (SDL_Rect * len(py_rects))(*py_rects)
+        SDL_SetRenderDrawColor(self.renderer, r, g, b, a)
+        SDL_RenderFillRects(self.renderer, rects, len(py_rects))
 
-    @cached_surf   
-    def fill_rounded_rect(self, x, y, w, h, r, color, widget):
-        surf = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_Pixel_Types["SDL_PF_argb8888"])
-        bg_color = Color("invis").as_uint32()
-        draw_color = color.as_uint32()
-        SDL_LockSurface(surf)
-        p = cast(surf.contents.pixels, POINTER(Uint32))
-        for surf_x in range(w):
-            for surf_y in range(h):
-                i = surf_y * w + surf_x
-                dist1 = sqrt((r - surf_x)*(r - surf_x) + (r - surf_y)*(r - surf_y))
-                cond1 = (dist1 > r) and (surf_x < r) and (surf_y < r)
-                dist2 = sqrt((w - r - surf_x)*(w - r - surf_x) + (r - surf_y)*(r - surf_y))
-                cond2 = (dist2 > r) and (surf_x > (w - r)) and (surf_y < r)
-                dist3 = sqrt((r - surf_x)*(r - surf_x) + (h - r - surf_y)*(h - r - surf_y))
-                cond3 = (dist3 > r) and (surf_x < r) and (surf_y > (h - r))
-                dist4 = sqrt((w - r - surf_x)*(w - r - surf_x) + (h - r - surf_y)*(h - r - surf_y))
-                cond4 = (dist4 > r) and (surf_x > (w - r)) and (surf_y > (h - r))
-                if cond1 or cond2 or cond3 or cond4:
-                    p[i] = bg_color
-                else:
-                    p[i] = draw_color
-        SDL_UnlockSurface(surf)
-        self.render_surface(surf, x - r, y - r)
-        return [[surf, x, y, None]]
-                          
+    def draw_rounded_rect(self, x, y, w, h, line_width, rad, color):
+        r, g, b, a = color.unwrap()
+        py_rects = [
+            SDL_Rect(x + rad, y, w - rad * 2, line_width),
+            SDL_Rect(x, y + rad, line_width, h - rad * 2),
+            SDL_Rect(x + w - line_width, y + rad, line_width, h - 2 * rad),
+            SDL_Rect(x + rad, y + h - line_width, w - 2 * rad, line_width)
+            ]
+        rects = (SDL_Rect * len(py_rects))(*py_rects)
+        SDL_SetRenderDrawColor(self.renderer, r, g, b, a)
+        SDL_RenderFillRects(self.renderer, rects, len(py_rects))
+        self.draw_circle(x + rad, y + rad, rad, color, start = 180, end = 270)
+        self.draw_circle(x + w - rad, y + rad, rad, color, start = 90, end = 180)
+        self.draw_circle(x + rad, y + h - rad, rad, color, start = 270, end = 360)
+        self.draw_circle(x + w - rad, y + h - rad, rad, color, start = 0, end = 90)
 
-    @cached_surf   
-    def draw_circle(self, x, y, r, color):
-        w = r * 2
-        h = r * 2
-        surf = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_Pixel_Types["SDL_PF_argb8888"])
-        bg_color = Color("invis").as_uint32()
-        draw_color = color.as_uint32()
-        SDL_LockSurface(surf)
-        p = cast(surf.contents.pixels, POINTER(Uint32))
-        for surf_x in range(w):
-            for surf_y in range(h):
-                i = surf_y * w + surf_x
-                dist = sqrt((r - surf_x)*(r - surf_x) + (r - surf_y)*(r - surf_y))
-                if dist < r:
-                    p[i] = draw_color
-                else:
-                    p[i] = bg_color
-        SDL_UnlockSurface(surf)
-        self.render_surface(surf, x - r, y - r)
-        return [[surf, x, y, None]]
+    def fill_rounded_rect(self, x, y, w, h, rad, color):
+        self.fill_rect(x + rad, y, w - 2 * rad, h, color)
+        self.fill_rect(x, y + rad, w, h - 2 * rad, color)
+        self.draw_circle(x + rad, y + rad, rad, color, start = 180, end = 270)
+        self.draw_circle(x + w - rad, y + rad, rad, color, start = 90, end = 180)
+        self.draw_circle(x + rad, y + h - rad, rad, color, start = 270, end = 360)
+        self.draw_circle(x + w - rad, y + h - rad, rad, color, start = 0, end = 90)
+        
 
-    def test_draw(self):
-        x_0 = 200
-        y_0 = 200
-        r = 300
+    def draw_circle(self, x0, y0, r, color, start = 0, end = 360):
         py_vertices = []
-        vert_count = 50
-        step = 1/vert_count
+        start = radians(start)
+        end = radians(end)
+        ratio = (end-start) / (2 * pi)
+        vert_count = int(self.vert_count * ratio)
+        step = 1/self.vert_count
+        x = x0 + sin(start) * r
+        y = y0 + cos(start) * r
         for i in range(vert_count):
-            x = x_0 + sin(2 * pi * i * step) * r
-            y = y_0 + cos(2 * pi * i * step) * r
-            
-            x_next = x_0 + sin(2 * pi * (i+1) * step) * r
-            y_next = y_0 + cos(2 * pi * (i+1) * step) * r
+            x_next = x0 + sin(start + 2 * pi * (i+1) * step) * r
+            y_next = y0 + cos(start + 2 * pi * (i+1) * step) * r
                 
+            py_vertices.append(SDL_Vertex(SDL_FPoint(x0, y0), color.unwrap(), SDL_FPoint(0, 0)))
+            py_vertices.append(SDL_Vertex(SDL_FPoint(x, y), color.unwrap(), SDL_FPoint(0, 0)))
+            py_vertices.append(SDL_Vertex(SDL_FPoint(x_next, y_next), color.unwrap(), SDL_FPoint(0, 0)))
+
+            x, y = x_next, y_next
             
-            py_vertices.append(SDL_Vertex(SDL_FPoint(x_0, y_0), (255,0,0,255), SDL_FPoint(0, 0)))
-            py_vertices.append(SDL_Vertex(SDL_FPoint(x, y), (255,0,0,255), SDL_FPoint(0, 0)))
-            py_vertices.append(SDL_Vertex(SDL_FPoint(x_next, y_next), (255,0,0,255), SDL_FPoint(0, 0)))
         vertices = (SDL_Vertex * len(py_vertices))(*py_vertices)
-
-        SDL_SetRenderDrawColor(self.renderer, 255, 0, 0, 255)
-
         SDL_RenderGeometry(self.renderer, None, vertices, len(py_vertices), None, 0)
         
     @cached_surf
@@ -472,12 +447,10 @@ class SDL_app:
             #video
             SDL_RenderClear(self.renderer)
             self.draw_widget(main_widget)
-            self.function_time(self.test_draw, "vert")
-            self.function_time(self.draw_circle, "surf", 400, 400, 300, Color("blue"))
-            if self.frame == 1:
-            	self.my_widgets[0].change_text(str(self.func_times))#str(fps))
-            for i in self.my_widgets:
-                self.draw_widget(i)
+##            if self.frame == 1:
+##            	self.my_widgets[0].change_text(str(self.func_times))#str(fps))
+##            for i in self.my_widgets:
+##                self.draw_widget(i)
             
             SDL_RenderPresent(self.renderer)
             #audio
@@ -495,13 +468,6 @@ class SDL_app:
         self.close()
         
     def close(self):
-        for i in range(SDL_GetNumRenderDrivers()):
-            info = SDL_RendererInfo()
-            SDL_GetRenderDriverInfo(i, info)
-            print(info.name)
-        info = SDL_RendererInfo()
-        SDL_GetRendererInfo(self.renderer, info)
-        print(info.name)
         SDL_PauseAudio(1)
         self.app.destroy()
         self.sounds = 0
