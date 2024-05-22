@@ -44,12 +44,6 @@ class Widget:
                     if w.is_complex:
                         return w.find_first_interactive_widget(x, y)
         return None
-        
-    def bg_color(self, color = None):
-        if color == None:
-            return self.widgets[0].color
-        else:
-            self.widgets[0].color = color
             
     @transform
     def add_border(self, w, h):
@@ -86,9 +80,10 @@ class Fill_Rect(Widget):
         
 class Draw_Rect(Widget):
     
-    def __init__(self, app, parrent, x, y, w, h, border, color):
+    def __init__(self, app, parrent, x, y, w, h, line_width, color, r = None):
         Widget.__init__(self, app, parrent, x, y, w, h, color)
-        self.border = border
+        self.line_width = line_width
+        self.r = r
                 
 class Text(Widget):
         
@@ -116,8 +111,8 @@ class Diagram(Widget):
 class Scene(Widget):
     
     def __init__(self, app, color = None, widgets = None):
-        color = color if color != None else Color("Scene_bg", theme = app.color_theme)
         Widget.__init__(self, app, None, 0, 0, 1, 1)
+        color = color if color != None else Color("Scene_bg", theme = app.color_theme)
         self.widgets = [Fill_Rect(app, self, 0, 0, 1, 1, color)]
 
     def have_cb(self):
@@ -128,20 +123,20 @@ class Scene(Widget):
 
 class Label(Widget):
 
-    def __init__(self, app, parrent, x, y, w, h, text, text_color, bg_color = None):
-        Widget.__init__(self, app, parrent, x, y, w, h, bg_color)
-        self.widgets = [Text(app, self, x, y, w, h, text, text_color)]
-        if bg_color != None:
-            self.widgets = [Fill_Rect(app, self, x, y, w, h, bg_color)] + self.widgets
+    def __init__(self, app, parrent, x, y, w, h, text, text_color = None, bg_color = None):
+        Widget.__init__(self, app, parrent, x, y, w, h)
+        bg_color = bg_color if bg_color != None else Color("Label_bg", theme = app.color_theme)
+        text_color = text_color if text_color != None else Color("Label_text", theme = app.color_theme)
+        self.widgets = [Fill_Rect(app, self, x, y, w, h, bg_color),
+                        Text(app, self, x, y, w, h, text, text_color)]
             
     def change_text(self, text):
-        #if bg_color == none [1] is wrong
         self.widgets[1].change_text(text)
 
 class Button(Widget):
     
     def __init__(self, app, parrent, x, y, w, h, text, color = None, text_dir = None, border = None,
-                 click_border = 0.01, click_func = None, unclick_func = None, r = None):
+                 click_border = 0.02, click_func = None, unclick_func = None, r = None):
         
         Widget.__init__(self, app, parrent, x, y, w, h, color, is_interactive = True)
         color = color if color != None else Color("Button_bg", theme = app.color_theme)
@@ -153,7 +148,8 @@ class Button(Widget):
         if border != None:
             self.widgets.append(Draw_Rect(app, self, x, y, w, h, border, Color("black")))
 
-    def change_color(self, color):
+    def change_color(self, color = None):
+        color = color if color != None else Color("Button_bg", theme = self.app.color_theme)
         self.widgets[0].color = color
 
     def get_text(self):
@@ -165,15 +161,15 @@ class Button(Widget):
     def activate(self):
         if self.click_func != None:
             self.click_func(self)
-        self.widgets.append(Draw_Rect(self.app, self, self.x, self.y, self.w, self.h, self.click_border, self.bg_color()))
-        self.bg_color(self.widgets[0].color.add_k(-30))
+        self.widgets.append(Draw_Rect(self.app, self, self.x, self.y, self.w, self.h, self.click_border, self.widgets[0].color, self.widgets[0].r))
+        self.widgets[0].color = self.widgets[0].color.add_k(-40)
         self.widgets[1].add_border(-self.click_border, -self.click_border)
         self.widgets[1].color = self.widgets[1].color.invert()
         
     def disactivate(self, run_func = True):
         self.widgets[1].add_border(self.click_border, self.click_border)
         self.widgets[1].color = Color("black")
-        self.bg_color(self.widgets[-1].color)
+        self.widgets[0].color = self.widgets[-1].color
         self.pop_last_widget()
         if (self.unclick_func != None) and run_func:
             self.unclick_func(self)

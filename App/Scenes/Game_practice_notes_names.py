@@ -27,18 +27,17 @@ class Game_practice_notes_names(Scene):
             scene = self.app.scene
             notes = scene.make_notes()
             grid = scene.widgets[-1]
-            scene.widgets[1].change_text(f"Угадайте следующую ноту: {self.parrent.note}")
+            scene.widgets[1].change_text(f"Угадайте ноту следующую за {self.parrent.note}")
             for i in range(len(notes)):
                 grid.widgets[i].change_text(notes[i])
-                grid.widgets[i].change_color(Color("random"))
+                grid.widgets[i].change_color()
                 
-        self.widgets.append(Label(app, self, 0.1, 0.1, 0.8, 0.2, f"Угадайте следующую ноту: {self.note}", Color("white"), Color(BUTTON_COLOR)))
-        self.widgets.append(Button(app, self, 0.1, 0.55, 0.8, 0.15, Color("random"), "Следующий раунд", unclick_func=b_next_round_cb))
-        self.widgets.append(Button(app, self, 0.1, 0.75, 0.8, 0.15, Color("random"), "Назад", unclick_func=b_back_cb))
+        self.widgets.append(Label(app, self, 0.1, 0.1, 0.8, 0.2, f"Угадайте ноту следующую за {self.note}"))
+        self.widgets.append(Button(app, self, 0.1, 0.55, 0.8, 0.15, "Следующий раунд", unclick_func=b_next_round_cb, r = 10))
+        self.widgets.append(Button(app, self, 0.1, 0.75, 0.8, 0.15, "Назад", unclick_func=b_back_cb, r = 10))
         
         unclick_funcs = [b_guess_cb for i in range(4)]
-        colors = [Color(BUTTON_COLOR) for i in range(4)]
-        self.widgets.append(Button_grid(app, self, 0.1, 0.35, 0.8, 0.15, 0.05, 0, 4, 1, notes, colors, unclick_funcs))
+        self.widgets.append(Button_grid(app, self, 0.1, 0.35, 0.8, 0.15, 0.05, 0, 4, 1, notes, unclick_funcs=unclick_funcs, rad = 10))
 
     def make_notes(self):
         result = []

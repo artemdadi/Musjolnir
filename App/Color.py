@@ -16,7 +16,9 @@ def fill_colors_palette(palette_p, colors):
 COLOR_THEMES = {
 "default": {
     "Scene_bg" : "#16171b",
-    "Button_bg" : "#01b075"
+    "Button_bg" : "#01b075",
+    "Label_bg" : "#01b075",
+    "Label_text" : "black"
     }
 }
 
@@ -63,13 +65,13 @@ class Color:
         r = add_in_range(self.r, k, 0, 255)
         g = add_in_range(self.g, k, 0, 255)
         b = add_in_range(self.b, k, 0, 255)
-        return Color(r, g, b, self.a)
+        return Color((r, g, b, self.a))
         
     def invert(self):
         r = 255 - self.r
         g = 255 - self.g
         b = 255 - self.b
-        return Color(r, g, b, self.a)
+        return Color((r, g, b, self.a))
         
     def as_uint32(self):
         return ((self.a << 24)|(self.r << 16)|(self.g << 8)|(self.b <<0))

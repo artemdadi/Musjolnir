@@ -133,8 +133,11 @@ class SDL_app:
                 else:
                     self.fill_rounded_rect(x, y, w, h, widget.r, color)
             elif isinstance(widget, Draw_Rect):
-                border = self.norm_to_min_length_pixels(widget.border)
-                self.draw_rect(x, y, w, h, border, color)
+                line_width = self.norm_to_min_length_pixels(widget.line_width)
+                if widget.r == None:
+                    self.draw_rect(x, y, w, h, line_width, color)
+                else:
+                    self.draw_rounded_rect(x, y, w, h, line_width, widget.r, color)
             elif isinstance(widget, Text):
                 if widget.text != "":
                     self.render_text_in_rect(x, y, w, h, widget.text, color, self.big_font, widget.angle, widget)
@@ -201,10 +204,11 @@ class SDL_app:
         rects = (SDL_Rect * len(py_rects))(*py_rects)
         SDL_SetRenderDrawColor(self.renderer, r, g, b, a)
         SDL_RenderFillRects(self.renderer, rects, len(py_rects))
-        self.draw_circle(x + rad, y + rad, rad, color, start = 180, end = 270)
-        self.draw_circle(x + w - rad, y + rad, rad, color, start = 90, end = 180)
-        self.draw_circle(x + rad, y + h - rad, rad, color, start = 270, end = 360)
-        self.draw_circle(x + w - rad, y + h - rad, rad, color, start = 0, end = 90)
+        r0 = rad - line_width
+        self.draw_circle(x + rad, y + rad, rad, color, start = 180, end = 275, r0 = r0)
+        self.draw_circle(x + w - rad, y + rad, rad, color, start = 90, end = 185 , r0 = r0)
+        self.draw_circle(x + rad, y + h - rad, rad, color, start = 270, end = 365, r0 = r0)
+        self.draw_circle(x + w - rad, y + h - rad, rad, color, start = 0, end = 95, r0 = r0)
 
     def fill_rounded_rect(self, x, y, w, h, rad, color):
         self.fill_rect(x + rad, y, w - 2 * rad, h, color)
@@ -215,24 +219,44 @@ class SDL_app:
         self.draw_circle(x + w - rad, y + h - rad, rad, color, start = 0, end = 90)
         
 
-    def draw_circle(self, x0, y0, r, color, start = 0, end = 360):
+    def draw_circle(self, x0, y0, r, color, start = 0, end = 360, r0 = 0):
         py_vertices = []
         start = radians(start)
         end = radians(end)
         ratio = (end-start) / (2 * pi)
         vert_count = int(self.vert_count * ratio)
         step = 1/self.vert_count
-        x = x0 + sin(start) * r
-        y = y0 + cos(start) * r
-        for i in range(vert_count):
-            x_next = x0 + sin(start + 2 * pi * (i+1) * step) * r
-            y_next = y0 + cos(start + 2 * pi * (i+1) * step) * r
-                
-            py_vertices.append(SDL_Vertex(SDL_FPoint(x0, y0), color.unwrap(), SDL_FPoint(0, 0)))
-            py_vertices.append(SDL_Vertex(SDL_FPoint(x, y), color.unwrap(), SDL_FPoint(0, 0)))
-            py_vertices.append(SDL_Vertex(SDL_FPoint(x_next, y_next), color.unwrap(), SDL_FPoint(0, 0)))
+        if (r0 == 0):
+            x = x0 + sin(start) * r
+            y = y0 + cos(start) * r
+            for i in range(vert_count):
+                x_next = x0 + sin(start + 2 * pi * (i+1) * step) * r
+                y_next = y0 + cos(start + 2 * pi * (i+1) * step) * r
+                    
+                py_vertices.append(SDL_Vertex(SDL_FPoint(x0, y0), color.unwrap(), SDL_FPoint(0, 0)))
+                py_vertices.append(SDL_Vertex(SDL_FPoint(x, y), color.unwrap(), SDL_FPoint(0, 0)))
+                py_vertices.append(SDL_Vertex(SDL_FPoint(x_next, y_next), color.unwrap(), SDL_FPoint(0, 0)))
 
-            x, y = x_next, y_next
+                x, y = x_next, y_next
+        else:
+            x1 = x0 + sin(start) * r
+            y1 = y0 + cos(start) * r
+            x2 = x0 + sin(start) * r0
+            y2 = y0 + cos(start) * r0
+            for i in range(vert_count):
+                if i%2 == 0:
+                    x_next = x0 + sin(start + 2 * pi * (i+1) * step) * r
+                    y_next = y0 + cos(start + 2 * pi * (i+1) * step) * r
+                else:
+                    x_next = x0 + sin(start + 2 * pi * i * step) * r0
+                    y_next = y0 + cos(start + 2 * pi * i * step) * r0
+                    
+                py_vertices.append(SDL_Vertex(SDL_FPoint(x1, y1), color.unwrap(), SDL_FPoint(0, 0)))
+                py_vertices.append(SDL_Vertex(SDL_FPoint(x2, y2), color.unwrap(), SDL_FPoint(0, 0)))
+                py_vertices.append(SDL_Vertex(SDL_FPoint(x_next, y_next), color.unwrap(), SDL_FPoint(0, 0)))
+
+                x1, y1 = x2, y2
+                x2, y2 = x_next, y_next
             
         vertices = (SDL_Vertex * len(py_vertices))(*py_vertices)
         SDL_RenderGeometry(self.renderer, None, vertices, len(py_vertices), None, 0)
@@ -451,7 +475,6 @@ class SDL_app:
 ##            	self.my_widgets[0].change_text(str(self.func_times))#str(fps))
 ##            for i in self.my_widgets:
 ##                self.draw_widget(i)
-            
             SDL_RenderPresent(self.renderer)
             #audio
             
