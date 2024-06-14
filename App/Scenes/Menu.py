@@ -6,10 +6,7 @@ class Menu(Scene):
         Scene.__init__(self, app)
         
         def b_change_scene_cb(self):
-            if self.value == "Game":
-                self.app.scene_type = self.app.game_type
-            else:
-                self.app.scene_type = self.value
+            self.app.scene_type = self.value
         
         def b_exit_cb(self):
             self.app.stop()

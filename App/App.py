@@ -1,4 +1,5 @@
 from .Scenes import *
+from .Games import *
 from .Color import *
 
 class App_event:
@@ -12,7 +13,8 @@ class App_event:
 
 class App:
 
-    game_types = Game_types
+    games = Games
+    game_types = list(Games.keys())
 
     def __init__(self, api):
         self.api = api

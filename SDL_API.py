@@ -120,29 +120,34 @@ class SDL_app:
         return int(self.min_length * value)
 
     def draw_widget(self, widget):
-        if widget.is_complex():
-            for cwidget in widget.widgets:
-                self.function_time(self.draw_widget, cwidget.__class__, cwidget)
-        else:
-            x, y = self.norm_to_pixels(widget.x, widget.y)
-            w, h = self.norm_to_pixels(widget.w, widget.h)
-            color = widget.color
-            if isinstance(widget, Fill_Rect):
-                if widget.r == None:
-                    self.fill_rect(x, y, w, h, color)
-                else:
-                    self.fill_rounded_rect(x, y, w, h, widget.r, color)
-            elif isinstance(widget, Draw_Rect):
-                line_width = self.norm_to_min_length_pixels(widget.line_width)
-                if widget.r == None:
-                    self.draw_rect(x, y, w, h, line_width, color)
-                else:
-                    self.draw_rounded_rect(x, y, w, h, line_width, widget.r, color)
-            elif isinstance(widget, Text):
-                if widget.text != "":
-                    self.render_text_in_rect(x, y, w, h, widget.text, color, self.big_font, widget.angle, widget)
-            elif isinstance(widget, Diagram):
-                self.render_diagram(x, y, w, h, widget.points, color, widget)
+        if widget.visible:
+            if widget.is_complex():
+                for cwidget in widget.widgets:
+                    self.function_time(self.draw_widget, cwidget.__class__, cwidget)
+            else:
+                x, y = self.norm_to_pixels(widget.x, widget.y)
+                w, h = self.norm_to_pixels(widget.w, widget.h)
+                color = widget.color
+                if isinstance(widget, Fill_Rect):
+                    if widget.r == None:
+                        self.fill_rect(x, y, w, h, color)
+                    else:
+                        self.fill_rounded_rect(x, y, w, h, widget.r, color)
+                elif isinstance(widget, Draw_Rect):
+                    line_width = self.norm_to_min_length_pixels(widget.line_width)
+                    if widget.r == None:
+                        self.draw_rect(x, y, w, h, line_width, color)
+                    else:
+                        self.draw_rounded_rect(x, y, w, h, line_width, widget.r, color)
+                elif isinstance(widget, Text):
+                    if widget.text != "":
+                        self.render_text_in_rect(x, y, w, h, widget.text, color, self.big_font, widget.angle, widget)
+                elif isinstance(widget, Diagram):
+                    self.render_diagram(x, y, w, h, widget.points, color, widget)
+                elif isinstance(widget, Fill_Triangle):
+                    x1, y1 = self.norm_to_pixels(widget.x1, widget.y1)
+                    x2, y2 = self.norm_to_pixels(widget.x2, widget.y2)
+                    self.fill_triangle(x, y, x1, y1, x2, y2, color)
             
     #SURFACE CACHE------------------------------------------------------------------
         
@@ -217,7 +222,14 @@ class SDL_app:
         self.draw_circle(x + w - rad, y + rad, rad, color, start = 90, end = 180)
         self.draw_circle(x + rad, y + h - rad, rad, color, start = 270, end = 360)
         self.draw_circle(x + w - rad, y + h - rad, rad, color, start = 0, end = 90)
-        
+
+    def fill_triangle(self, x, y, x1, y1, x2, y2, color):
+        py_vertices = []
+        py_vertices.append(SDL_Vertex(SDL_FPoint(x, y), color.unwrap(), SDL_FPoint(0, 0)))
+        py_vertices.append(SDL_Vertex(SDL_FPoint(x1, y1), color.unwrap(), SDL_FPoint(0, 0)))
+        py_vertices.append(SDL_Vertex(SDL_FPoint(x2, y2), color.unwrap(), SDL_FPoint(0, 0)))
+        vertices = (SDL_Vertex * len(py_vertices))(*py_vertices)
+        SDL_RenderGeometry(self.renderer, None, vertices, len(py_vertices), None, 0)
 
     def draw_circle(self, x0, y0, r, color, start = 0, end = 360, r0 = 0):
         py_vertices = []
