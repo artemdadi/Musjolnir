@@ -89,12 +89,19 @@ class Draw_Rect(Widget):
         self.r = r
 
 class Fill_Triangle(Widget):
+    
     def __init__(self, app, parrent, x, y, x1, y1, x2, y2, color):
         Widget.__init__(self, app, parrent, x, y, color = color)
         self.x1 = x1
         self.y1 = y1
         self.x2 = x2
         self.y2 = y2
+
+class Fill_Rect_Triangle(Widget):
+    
+    def __init__(self, app, parrent, x, y, w, h, angle, color):
+        Widget.__init__(self, app, parrent, x, y, w, h, color = color)
+        self.angle = angle
                 
 class Text(Widget):
 
@@ -178,9 +185,6 @@ class Button(Widget):
         self.widgets[0].color = self.widgets[0].color.add_k(-40)
         self.widgets[1].add_border(-self.click_border, -self.click_border)
         self.widgets[1].color = self.widgets[1].color.invert()
-        print("activ")
-        for i in self.widgets:
-            print(str(i.__class__) + str(i.color))
         
     def disactivate(self, run_func = True):
         self.widgets[1].add_border(self.click_border, self.click_border)
@@ -189,9 +193,6 @@ class Button(Widget):
         self.pop_last_widget()
         if (self.unclick_func != None) and run_func:
             self.unclick_func(self)
-        print("disactiv")
-        for i in self.widgets:
-            print(str(i.__class__) + str(i.color))
 
 class Button_grid(Widget):
     
@@ -255,34 +256,29 @@ class Choose_menu(Widget):
         Widget.__init__(self, app, parrent, x, y, w, h)
         self.var_name = var_name
         
-        triangle_width = 0.1 * w
-        b_w = w - triangle_width
-        x0 = x + w * 0.9
-        y0 = y + h * 0.3
-        x1 = x + w * 0.98
-        y1 = y + h * 0.3
-        x2 = x + w * 0.94
-        y2 = y + h * 0.8
+        tri_b_w = 0.1 * w
+        b_w = w - tri_b_w
         
         def b_change_var(b):
             main_widget = b.parrent.parrent
             setattr(b.app, main_widget.var_name, b.value)
             self.widgets[0].change_text(b.value)
+            self.h -= self.widgets[2].h
             self.widgets[2].visible = False
 
         unclick_funcs = [b_change_var for i in range(len(values))]
-        padding_h = 0.05
+        padding_h = 0
         grid_h = (h + padding_h) * len(values) - padding_h
         self.widgets = [Button(app, self, x, y, b_w, h, getattr(self.app, var_name), color, unclick_func=self.show_options),
-                        Button(app, self, x + b_w, y, triangle_width, h, "", color, unclick_func=self.show_options),
-                        Button_grid(self.app, self, self.x, self.y + h, b_w, grid_h, 0,
+                        Button(app, self, x + b_w, y, tri_b_w, h, "", color, unclick_func=self.show_options),
+                        Button_grid(self.app, self, self.x, self.y + h, w, grid_h, 0,
                                     padding_h, 1, len(values), values, colors = None,
-                                    unclick_funcs = unclick_funcs, values = values),]
-        self.widgets[1].widgets[1] = Fill_Triangle(app, self, x0, y0, x1, y1, x2, y2, Color("black"))
+                                    unclick_funcs = unclick_funcs, values = values)]
+        self.widgets[1].widgets[1] = Fill_Rect_Triangle(app, self, x + b_w + tri_b_w * 0.25, y + 0.25 * h, 0.5 * tri_b_w, 0.5 * h, 90, Color("black"))
         self.widgets[2].visible = False
 
     def show_options(self, button):
-        self.h = self.widgets[2].h
+        self.h += self.widgets[2].h
         self.widgets[2].visible = True
         
         

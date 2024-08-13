@@ -166,6 +166,9 @@ class SDL_app:
                     x1, y1 = self.norm_to_pixels(widget.x1, widget.y1)
                     x2, y2 = self.norm_to_pixels(widget.x2, widget.y2)
                     self.fill_triangle(x, y, x1, y1, x2, y2, color)
+                elif isinstance(widget, Fill_Rect_Triangle):
+                    self.create_texture(x, y, w, h, widget.angle, self.fill_rect_triangle, (0, 0, w, h, color), Color("transparent"), widget)
+                    
             
     #VIDEO CACHE------------------------------------------------------------------
     def cached_entity(entity_type):
@@ -222,7 +225,7 @@ class SDL_app:
             SDL_RenderCopy(self.renderer, texture, byref(srcrect), byref(dstrect))
         else:
             dstrect = SDL_Rect(x, y, w, h)
-            center = SDL_Point(0, 0)#c_int(int(w.value/2)), c_int(int(h.value/2)))
+            center = SDL_Point(c_int(int(w.value/2)), c_int(int(h.value/2)))
             SDL_RenderCopyEx(self.renderer, texture, byref(srcrect), byref(dstrect), angle, byref(center), 0)
     
     def fill_rect(self, x, y, w, h, color):
@@ -271,6 +274,9 @@ class SDL_app:
         py_vertices.append(SDL_Vertex(SDL_FPoint(x2, y2), color.unwrap(), SDL_FPoint(0, 0)))
         vertices = (SDL_Vertex * len(py_vertices))(*py_vertices)
         SDL_RenderGeometry(self.renderer, None, vertices, len(py_vertices), None, 0)
+
+    def fill_rect_triangle(self, x, y, w, h, color):
+        self.fill_triangle(x, y, x, y + h, x + w, y + int(h/2), color)
 
     def draw_circle(self, x0, y0, r, color, start = 0, end = 360, r0 = 0):
         py_vertices = []
@@ -434,6 +440,8 @@ class SDL_app:
                 self.width = w.value
                 self.height = h.value
                 self.app.destroy()
+                for widget in self.widgets:
+                    widget.destroy()
             else:
                 pass#print(event_type)
         return events
@@ -466,7 +474,7 @@ class SDL_app:
         self.small_font = TTF_OpenFont(b'Fonts/font.ttf', 20)
         #window
         c_name = c_char_p(self.name)
-        self.window = SDL_CreateWindow(c_name, 30, 30, 800, 500, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE)
+        self.window = SDL_CreateWindow(c_name, 30, 30, 800, 800, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE)
         w = c_int()
         h = c_int()
         SDL_GetWindowSize(self.window, byref(w), byref(h))
@@ -486,7 +494,7 @@ class SDL_app:
         # init error
         print("SDL init error: {}".format(SDL_GetError()))
         #additional vars
-        self.my_widgets = [Text(self.app, None, 0.1, 0.1, 0.9, 0.9, "", Color("red"))]
+        self.widgets = []#Text(self.app, None, 0.1, 0.1, 0.9, 0.9, "", Color("red"))
         self.debug_info = ""
         #app main loop
         SDL_PauseAudio(0)
@@ -514,10 +522,10 @@ class SDL_app:
             SDL_RenderClear(self.renderer)
             self.draw_widget(main_widget)
 ##            if self.fps_time > 1:
-##                self.my_widgets[0].change_text(str(self.fps_frames))#str(fps))
+##                self.widgets[0].change_text(str(self.fps_frames))#str(fps))
 ##                self.fps_time = 0
-##            for i in self.my_widgets:
-##                self.draw_widget(i)
+            for i in self.widgets:
+                self.draw_widget(i)
             SDL_RenderPresent(self.renderer)
             #audio
             
