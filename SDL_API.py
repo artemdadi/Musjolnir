@@ -18,6 +18,24 @@ from SDL_Consts import *
 from Sound import *
 from String import *
 
+class SDL_cached_entity:
+
+    def __init__(self, entity_type, SDL_pointer, x, y, angle):
+        self.type = entity_type
+        self.SDL_pointer = SDL_pointer
+        self.x = x
+        self.y = y
+        self.angle = angle
+
+    def __str__(self):
+        return str(self.__dict__)
+
+    def free(self):
+        if self.type == "surf":
+            SDL_FreeSurface(self.SDL_pointer)
+        elif self.type == "texture":
+            SDL_DestroyTexture(self.SDL_pointer)
+
 class SDL_app:
     
     def __init__(self, name):
@@ -123,7 +141,7 @@ class SDL_app:
         if widget.visible:
             if widget.is_complex():
                 for cwidget in widget.widgets:
-                    self.function_time(self.draw_widget, cwidget.__class__, cwidget)
+                    self.draw_widget(cwidget)
             else:
                 x, y = self.norm_to_pixels(widget.x, widget.y)
                 w, h = self.norm_to_pixels(widget.w, widget.h)
@@ -132,13 +150,13 @@ class SDL_app:
                     if widget.r == None:
                         self.fill_rect(x, y, w, h, color)
                     else:
-                        self.fill_rounded_rect(x, y, w, h, widget.r, color)
+                        self.create_texture(x, y, w, h, None, self.fill_rounded_rect, (0, 0, w, h, widget.r, color), Color("transparent"), widget)
                 elif isinstance(widget, Draw_Rect):
                     line_width = self.norm_to_min_length_pixels(widget.line_width)
                     if widget.r == None:
                         self.draw_rect(x, y, w, h, line_width, color)
                     else:
-                        self.draw_rounded_rect(x, y, w, h, line_width, widget.r, color)
+                        self.create_texture(x, y, w, h, None, self.draw_rounded_rect, (0, 0, w, h, line_width, widget.r, color), Color("transparent"), widget)
                 elif isinstance(widget, Text):
                     if widget.text != "":
                         self.render_text_in_rect(x, y, w, h, widget.text, color, self.big_font, widget.angle, widget)
@@ -149,72 +167,95 @@ class SDL_app:
                     x2, y2 = self.norm_to_pixels(widget.x2, widget.y2)
                     self.fill_triangle(x, y, x1, y1, x2, y2, color)
             
-    #SURFACE CACHE------------------------------------------------------------------
-        
-    def cached_surf(draw_func):
-        def wrapper(*args, **kwargs):
-            widget = args[-1]
-            self = args[0]
-            if hasattr(widget, 'SDL_cache'):
-                if widget.is_transformed:
-                    self.free_SDL_cache(widget)
-                    surfs = draw_func(*args, **kwargs)
-                    widget.SDL_cache = surfs
-                    widget.is_transformed = False
+    #VIDEO CACHE------------------------------------------------------------------
+    def cached_entity(entity_type):
+        def wrapper_args(draw_func):
+            def wrapper(*args, **kwargs):
+                widget = args[-1]
+                self = args[0]
+                if hasattr(widget, 'SDL_cache'):
+                    if widget.is_transformed:
+                        self.free_SDL_cache(widget)
+                        widget.SDL_cache = [SDL_cached_entity(entity_type, *entity) for entity in draw_func(*args, **kwargs)]
+                        widget.is_transformed = False
+                    else:
+                        for entity in widget.SDL_cache:
+                            if entity.type == "surf":
+                                self.render_surface(entity.SDL_pointer, entity.x, entity.y, entity.angle)
+                            elif entity.type == "texture":
+                                self.render_texture(entity.SDL_pointer, entity.x, entity.y, entity.angle)
                 else:
-                    for s in widget.SDL_cache:
-                        surf = s[0]
-                        x = s[1]
-                        y = s[2]
-                        angle = s[3]
-                        self.render_surface(surf, x, y, angle)
-            else:
-                surfs = draw_func(*args, **kwargs)
-                widget.SDL_cache = surfs
-                widget.clear_func = lambda widget: widget.app.api.free_SDL_cache(widget)
-        return wrapper
-        
+                    widget.SDL_cache = [SDL_cached_entity(entity_type, *entity) for entity in draw_func(*args, **kwargs)]
+                    widget.clear_func = lambda widget: widget.app.api.free_SDL_cache(widget)
+            return wrapper
+        return wrapper_args
+    
     def free_SDL_cache(self, widget):
-        for s in widget.SDL_cache:
-            SDL_FreeSurface(s[0])
+        for entity in widget.SDL_cache:
+            entity.free()
         delattr(widget, 'SDL_cache')
             
     #DRAWING FUNCS FOR DIFFERENT WIDGETS------------------------------------------------------------------
-            
-    def fill_rect(self, x, y, w, h, color):
-        r, g, b, a = color.unwrap()
-        SDL_SetRenderDrawColor(self.renderer, r, g, b, a)
-        SDL_RenderFillRect(self.renderer, byref(SDL_Rect(x, y, w, h)))
+    @cached_entity("texture")
+    def create_texture(self, x, y, w, h, angle, draw_function, func_args, bg_color, widget):
+        texture = SDL_CreateTexture(self.renderer, SDL_Pixel_Types["SDL_PF_argb8888"], SDL_TEXTUREACCESS_TARGET, w, h)
+        SDL_SetRenderTarget(self.renderer, texture)
+        SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND)
+        SDL_SetRenderDrawColor(self.renderer, *bg_color.unwrap())
+        SDL_RenderFillRect(self.renderer, byref(SDL_Rect(0, 0, w, h)))
+        draw_function(*func_args)
+        SDL_SetRenderTarget(self.renderer, None)
+        return [[texture, x, y, angle]]
         
+    def render_surface(self, surface, x, y, angle  = None):
+        texture = SDL_CreateTextureFromSurface(self.renderer, surface)
+        self.render_texture(texture, x, y, angle)
+        SDL_DestroyTexture(texture)
+            
+    def render_texture(self, texture, x, y, angle = None):
+        w = c_int()
+        h = c_int()
+        SDL_QueryTexture(texture, None, None, byref(w), byref(h))
+        srcrect = SDL_Rect(0, 0, w, h)
+        if angle == None:
+            dstrect = SDL_Rect(x, y, w, h)
+            SDL_RenderCopy(self.renderer, texture, byref(srcrect), byref(dstrect))
+        else:
+            dstrect = SDL_Rect(x, y, w, h)
+            center = SDL_Point(0, 0)#c_int(int(w.value/2)), c_int(int(h.value/2)))
+            SDL_RenderCopyEx(self.renderer, texture, byref(srcrect), byref(dstrect), angle, byref(center), 0)
+    
+    def fill_rect(self, x, y, w, h, color):
+        SDL_SetRenderDrawColor(self.renderer, *color.unwrap())
+        SDL_RenderFillRect(self.renderer, byref(SDL_Rect(x, y, w, h)))
+
     def draw_rect(self, x, y, w, h, line_width, color):
-        r, g, b, a = color.unwrap()
         py_rects = [
             SDL_Rect(x, y, w, line_width),
             SDL_Rect(x, y, line_width, h),
             SDL_Rect(x+w-line_width, y, line_width, h),
             SDL_Rect(x, y+h-line_width, w, line_width)
-            ]
+        ]
         rects = (SDL_Rect * len(py_rects))(*py_rects)
-        SDL_SetRenderDrawColor(self.renderer, r, g, b, a)
+        SDL_SetRenderDrawColor(self.renderer, *color.unwrap())
         SDL_RenderFillRects(self.renderer, rects, len(py_rects))
-
+        
     def draw_rounded_rect(self, x, y, w, h, line_width, rad, color):
-        r, g, b, a = color.unwrap()
         py_rects = [
             SDL_Rect(x + rad, y, w - rad * 2, line_width),
             SDL_Rect(x, y + rad, line_width, h - rad * 2),
             SDL_Rect(x + w - line_width, y + rad, line_width, h - 2 * rad),
             SDL_Rect(x + rad, y + h - line_width, w - 2 * rad, line_width)
-            ]
+        ]
         rects = (SDL_Rect * len(py_rects))(*py_rects)
-        SDL_SetRenderDrawColor(self.renderer, r, g, b, a)
+        SDL_SetRenderDrawColor(self.renderer, *color.unwrap())
         SDL_RenderFillRects(self.renderer, rects, len(py_rects))
         r0 = rad - line_width
         self.draw_circle(x + rad, y + rad, rad, color, start = 180, end = 275, r0 = r0)
         self.draw_circle(x + w - rad, y + rad, rad, color, start = 90, end = 185 , r0 = r0)
         self.draw_circle(x + rad, y + h - rad, rad, color, start = 270, end = 365, r0 = r0)
         self.draw_circle(x + w - rad, y + h - rad, rad, color, start = 0, end = 95, r0 = r0)
-
+        
     def fill_rounded_rect(self, x, y, w, h, rad, color):
         self.fill_rect(x + rad, y, w - 2 * rad, h, color)
         self.fill_rect(x, y + rad, w, h - 2 * rad, color)
@@ -273,7 +314,7 @@ class SDL_app:
         vertices = (SDL_Vertex * len(py_vertices))(*py_vertices)
         SDL_RenderGeometry(self.renderer, None, vertices, len(py_vertices), None, 0)
         
-    @cached_surf
+    @cached_entity("surf")
     def render_diagram(self, x, y, w, h, points, color, widget):
         surf = self.make_diagram_surf(w, h, points, color)
         self.render_surface(surf, x, y)
@@ -298,7 +339,7 @@ class SDL_app:
         SDL_SetSurfaceBlendMode(surf, blend_mode)
         return surf
         
-    @cached_surf
+    @cached_entity("surf")
     def render_text_in_rect(self, x, y, w, h, text, color, font, angle, widget):
         if angle == 90:
             x+=w
@@ -366,24 +407,6 @@ class SDL_app:
         surf = TTF_RenderUNICODE_Blended(font, text, color)
         self.render_surface(surf, x, y, angle)
         return surf
-        
-    def render_surface(self, surface, x, y, angle  = None):
-        texture = SDL_CreateTextureFromSurface(self.renderer, surface)
-        w = c_int()
-        h = c_int()
-        SDL_QueryTexture(texture, None, None, byref(w), byref(h))
-        self.render_texture(texture, x, y, w, h, angle)
-        SDL_DestroyTexture(texture)
-            
-    def render_texture(self, texture, x, y, w, h, angle = None):
-        srcrect = SDL_Rect(0, 0, w, h)
-        if angle == None:
-            dstrect = SDL_Rect(x, y, w, h)
-            SDL_RenderCopy(self.renderer, texture, byref(srcrect), byref(dstrect))
-        else:
-            dstrect = SDL_Rect(x, y, w, h)
-            center = SDL_Point(0, 0)#c_int(int(w.value/2)), c_int(int(h.value/2)))
-            SDL_RenderCopyEx(self.renderer, texture, byref(srcrect), byref(dstrect), angle, byref(center), 0)
 
     #EVENT SYSTEM--------------------------------------------------------------------------------------------
         
@@ -453,6 +476,7 @@ class SDL_app:
         self.min_length = self.height if self.width > self.height else self.width
         #renderer
         self.renderer = SDL_CreateRenderer(self.window, -1, SDL_RENDERER_ACCELERATED)
+##        SDL_SetRenderDrawBlendMode(self.renderer, SDL_BLENDMODE_BLEND)
         #audio
         self.init_playing_sounds_buf(10)
         self.make_want_as()
@@ -462,17 +486,23 @@ class SDL_app:
         # init error
         print("SDL init error: {}".format(SDL_GetError()))
         #additional vars
-        self.frame_time = 1
-        self.my_widgets = [Text(self.app, None, 0.1, 0.1, 0.9, 0.9, "111222333444555666777888999", Color("red"))]
+        self.my_widgets = [Text(self.app, None, 0.1, 0.1, 0.9, 0.9, "", Color("red"))]
         self.debug_info = ""
         #app main loop
         SDL_PauseAudio(0)
         run = True
+        self.frame_time = 1
         self.frame = 1
         self.tick_time = 0
         self.tick_per_second = 5
         self.second_per_tick = 1/self.tick_per_second
         self.tick = 0
+
+##        self.fps_time = 0
+##        self.fps_frames = 0
+        
+        self.fps = 60
+        self.spf = 1/self.fps
         while run:
             #begin time
             begin_time = time()
@@ -483,8 +513,9 @@ class SDL_app:
             #video
             SDL_RenderClear(self.renderer)
             self.draw_widget(main_widget)
-##            if self.frame == 1:
-##            	self.my_widgets[0].change_text(str(self.func_times))#str(fps))
+##            if self.fps_time > 1:
+##                self.my_widgets[0].change_text(str(self.fps_frames))#str(fps))
+##                self.fps_time = 0
 ##            for i in self.my_widgets:
 ##                self.draw_widget(i)
             SDL_RenderPresent(self.renderer)
@@ -492,6 +523,13 @@ class SDL_app:
             
             #end time
             self.frame_time = time() - begin_time
+
+            if self.frame_time < self.spf:
+                sleep(self.spf - self.frame_time)
+            
+##            self.fps_time+=self.spf
+##            self.fps_frames+=1
+            
             self.last_time = time()
             if self.frame_time == 0:
                 self.frame_time = sys.float_info.min

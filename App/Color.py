@@ -25,14 +25,14 @@ COLOR_THEMES = {
 class Color:
     
     colors = {
-    "red": (255, 0, 0, 255),
-    "green": (0, 255, 0, 255),
-    "blue": (0,0,255, 255),
-    "black": (0,0,0, 255),
-    "gray": (128,128,128, 255),
-    "white":(255,255,255, 255),
-    "purple":(255,0,255, 255),
-    "invis":(255,0,0, 0)
+    "red":          (255, 0,   0,   255),
+    "green":        (0,   255, 0,   255),
+    "blue":         (0,   0,   255, 255),
+    "black":        (0,   0,   0,   255),
+    "gray":         (128, 128, 128, 255),
+    "white":        (255, 255, 255, 255),
+    "purple":       (255, 0,   255, 255),
+    "transparent":  (0,   0,   0,   0)
     }
     
     def __init__(self, in_var = None, r = 0, g = 0, b = 0, a = 255, theme = None):
@@ -54,12 +54,15 @@ class Color:
         
     def __str__(self):
         return "Color(r={}, g={}, b={}, a={})".format(self.r,self.b,self.g, self.a)
+
+    def __repr__(self):
+        return str(self)
         
     def random_color(self):
         return randrange(0,255), randrange(0,255), randrange(0,255)
         
     def unwrap(self):
-        return self.r, self.g, self.b, self.a
+        return (self.r, self.g, self.b, self.a)
         
     def add_k(self, k):
         r = add_in_range(self.r, k, 0, 255)

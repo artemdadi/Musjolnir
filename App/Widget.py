@@ -3,6 +3,8 @@ from .Math import dir_to_angle
 from .Config import *
 
 class Widget:
+
+    transform_attrs = ["x", "y", "w", "h", "color"]
     
     def __init__(self, app, parrent, x, y, w = 0, h = 0, color = None, is_interactive = False):
         self.visible = True
@@ -17,18 +19,19 @@ class Widget:
         self.widgets = []
         self.is_interactive = is_interactive
 
+    def __setattr__(self, name, value):
+        if name in self.transform_attrs: 
+            self.is_transformed = True
+        self.__dict__[name] = value
+
+    def __str__(self):
+        return str(self.__dict__)
+
     def is_complex(self):
         if len(self.widgets) == 0:
             return False
         else:
             return True
-
-    def transform(func):
-        def wrap(*args, **kwargs):
-            self = args[0]
-            self.is_transformed = True
-            func(*args, **kwargs)
-        return wrap
     
     def is_widget(self, x, y, widget):
         if x >= widget.x and x <= (widget.x+widget.w) and y >= widget.y and y <=(widget.y+widget.h):
@@ -45,8 +48,7 @@ class Widget:
                     if w.is_complex:
                         return w.find_first_interactive_widget(x, y)
         return None
-            
-    @transform
+
     def add_border(self, w, h):
         if hasattr(self, "x1"):
             pass
@@ -70,9 +72,6 @@ class Widget:
     def pop_widget(self, widget):
         widget.destroy()
         self.widgets.pop(self.widgets.index(widget))
-
-    def print_dimensions(self):
-        print('x: {}, y: {}, w: {}, h: {}'.format(self.x, self.y, self.w, self.h))
 
     #ELEMENTARY WIDGETS---------------------------------------------------------
 
@@ -98,23 +97,25 @@ class Fill_Triangle(Widget):
         self.y2 = y2
                 
 class Text(Widget):
+
+    transform_attrs = Widget.transform_attrs + ["text"]
         
     def __init__(self, app, parrent, x, y, w, h, text, color = None, direction = None):
         Widget.__init__(self, app, parrent, x, y, w, h, color)
         self.text = text
         self.angle = dir_to_angle(direction)
-        
-    @Widget.transform
+    
     def change_text(self, text):
         self.text = text
         
 class Diagram(Widget):
 
+    transform_attrs = Widget.transform_attrs + ["points"]
+
     def __init__(self, app, parrent, x, y, w, h, points, color = None):
         Widget.__init__(self, app, parrent, x, y, w, h, color)
         self.points = points
 
-    @Widget.transform
     def change_points(self, points):
         self.points = points
 
@@ -177,6 +178,9 @@ class Button(Widget):
         self.widgets[0].color = self.widgets[0].color.add_k(-40)
         self.widgets[1].add_border(-self.click_border, -self.click_border)
         self.widgets[1].color = self.widgets[1].color.invert()
+        print("activ")
+        for i in self.widgets:
+            print(str(i.__class__) + str(i.color))
         
     def disactivate(self, run_func = True):
         self.widgets[1].add_border(self.click_border, self.click_border)
@@ -185,6 +189,9 @@ class Button(Widget):
         self.pop_last_widget()
         if (self.unclick_func != None) and run_func:
             self.unclick_func(self)
+        print("disactiv")
+        for i in self.widgets:
+            print(str(i.__class__) + str(i.color))
 
 class Button_grid(Widget):
     
