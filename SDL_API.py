@@ -130,12 +130,12 @@ class SDL_app:
         return y/self.height
         
     def norm_to_pixels(self, x, y):
-        x = int(x*self.width)
-        y = int(y*self.height)
+        x = ceil(x*self.width)
+        y = ceil(y*self.height)
         return x, y
 
     def norm_to_min_length_pixels(self, value):
-        return int(self.min_length * value)
+        return ceil(self.min_length * value)
 
     def draw_widget(self, widget):
         if widget.visible:
@@ -143,8 +143,16 @@ class SDL_app:
                 for cwidget in widget.widgets:
                     self.draw_widget(cwidget)
             else:
-                x, y = self.norm_to_pixels(widget.x, widget.y)
-                w, h = self.norm_to_pixels(widget.w, widget.h)
+                if hasattr(widget, "geometry"):
+                    figure = widget.geometry
+                    if isinstance(figure, Rect):
+                        p = figure["p"]
+                        size = figure["size"]
+                        x, y = self.norm_to_pixels(p["x"], p["y"])
+                        w, h = self.norm_to_pixels(size["w"], size["h"])
+                else:
+                    x, y = self.norm_to_pixels(widget.x, widget.y)
+                    w, h = self.norm_to_pixels(widget.w, widget.h)
                 color = widget.color
                 if isinstance(widget, Fill_Rect):
                     if widget.r == None:
@@ -194,9 +202,10 @@ class SDL_app:
         return wrapper_args
     
     def free_SDL_cache(self, widget):
-        for entity in widget.SDL_cache:
-            entity.free()
-        delattr(widget, 'SDL_cache')
+        if hasattr(widget, 'SDL_cache'):
+            for entity in widget.SDL_cache:
+                entity.free()
+            delattr(widget, 'SDL_cache')
             
     #DRAWING FUNCS FOR DIFFERENT WIDGETS------------------------------------------------------------------
     @cached_entity("texture")
@@ -276,14 +285,14 @@ class SDL_app:
         SDL_RenderGeometry(self.renderer, None, vertices, len(py_vertices), None, 0)
 
     def fill_rect_triangle(self, x, y, w, h, color):
-        self.fill_triangle(x, y, x, y + h, x + w, y + int(h/2), color)
+        self.fill_triangle(x, y, x + w, y, x + int(w/2), y + h, color)
 
     def draw_circle(self, x0, y0, r, color, start = 0, end = 360, r0 = 0):
         py_vertices = []
         start = radians(start)
         end = radians(end)
         ratio = (end-start) / (2 * pi)
-        vert_count = int(self.vert_count * ratio)
+        vert_count = ceil(self.vert_count * ratio)
         step = 1/self.vert_count
         if (r0 == 0):
             x = x0 + sin(start) * r
@@ -484,7 +493,7 @@ class SDL_app:
         self.min_length = self.height if self.width > self.height else self.width
         #renderer
         self.renderer = SDL_CreateRenderer(self.window, -1, SDL_RENDERER_ACCELERATED)
-##        SDL_SetRenderDrawBlendMode(self.renderer, SDL_BLENDMODE_BLEND)
+        SDL_SetRenderDrawBlendMode(self.renderer, SDL_BLENDMODE_BLEND)
         #audio
         self.init_playing_sounds_buf(10)
         self.make_want_as()

@@ -35,7 +35,7 @@ class App:
                     self.last_active_widget.activate()  
             elif event.type == 'UNCLICK':
                 if self.last_active_widget!= None:
-                    self.last_active_widget.disactivate(self.scene.is_widget(event.x, event.y, self.last_active_widget))
+                    self.last_active_widget.disactivate(self.last_active_widget.is_widget(event.x, event.y))
         return run
 
     def update(self, events):

@@ -6,3 +6,5 @@ from App.Notes_info import *
 from App.Music_theory import *
 from App.Math import *
 from App.App import *
+from App.Vector import *
+from App.Geometry import *
